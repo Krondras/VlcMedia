@@ -62,6 +62,7 @@ typedef void (*FLibvlcMediaPlayerRetainProc)(FLibvlcMediaPlayer* /*Player*/);
 typedef void (*FLibvlcMediaPlayerSetMediaProc)(FLibvlcMediaPlayer* /*Player*/, FLibvlcMedia* /*Media*/);
 
 // media player status
+typedef int32 (*FLibvlcMediaPlayerCanPauseProc)(const FLibvlcMediaPlayer* /*Player*/);
 typedef float (*FLibvlcMediaPlayerGetFpsProc)(const FLibvlcMediaPlayer* /*Player*/);
 typedef int64 (*FLibvlcMediaPlayerGetLengthProc)(const FLibvlcMediaPlayer* /*Player*/);
 typedef float (*FLibvlcMediaPlayerGetPositionProc)(const FLibvlcMediaPlayer* /*Player*/);
@@ -76,21 +77,49 @@ typedef void (*FLibvlcMediaPlayerSetTimeProc)(FLibvlcMediaPlayer* /*Player*/, in
 // media player control
 typedef int32 (*FLibvlcMediaPlayerIsPlayingProc)(const FLibvlcMediaPlayer* /*Player*/);
 typedef void (*FLibvlcMediaPlayerPauseProc)(FLibvlcMediaPlayer* /*Player*/);
-typedef void (*FLibvlcMediaPlayerPlayProc)(FLibvlcMediaPlayer* /*Player*/);
+typedef int32 (*FLibvlcMediaPlayerPlayProc)(FLibvlcMediaPlayer* /*Player*/);
 typedef void (*FLibvlcMediaPlayerSetPauseProc)(FLibvlcMediaPlayer* /*Player*/, int32 /*DoPause*/);
 typedef void (*FLibvlcMediaPlayerStopProc)(FLibvlcMediaPlayer* /*Player*/);
 typedef int32 (*FLibvlcMediaPlayerWillPlayProc)(FLibvlcMediaPlayer* /*Player*/);
 
 // audio
+typedef void (*FLibvlcAudioDrainCb)(void* /*Opaque*/);
+typedef void (*FLibvlcAudioFlushCb)(void* /*Opaque*/, int64 /*Timestamp*/);
+typedef void (*FLibvlcAudioPauseCb)(void* /*Opaque*/, int64 /*Timestamp*/);
+typedef void (*FLibvlcAudioPlayCb)(void* /*Opaque*/, void* /*Samples*/, uint32 /*Count*/, int64 /*Timestamp*/);
+typedef void (*FLibvlcAudioResumeCb)(void* /*Opaque*/, int64 /*Timestamp*/);
+
+typedef void (*FLibvlcAudioSetCallbacksProc)(
+	FLibvlcMediaPlayer* /*Player*/,
+	FLibvlcAudioPlayCb /*Play*/,
+	FLibvlcAudioPauseCb /*Pause*/,
+	FLibvlcAudioResumeCb /*Resume*/,
+	FLibvlcAudioFlushCb /*Flush*/,
+	FLibvlcAudioDrainCb /*Drain*/,
+	void* /*Opaque*/);
+
+typedef void (*FLibvlcAudioSetFormatProc)(
+	FLibvlcMediaPlayer* /*Player*/,
+	const ANSICHAR* /*Format*/,
+	uint32 Rate,
+	uint32 Channels);
+
+typedef int (*FLibvlcAudioSetupCb)(void** /*Opaque*/, ANSICHAR* /*Format*/, uint32* /*Rate*/, uint32* /*Channels*/);
+typedef void (*FLibvlcAudioCleanupCb)(void* /*Opaque*/);
+
+typedef void (*FLibvlcAudioSetFormatCallbacksProc)(
+	FLibvlcMediaPlayer* /*Player*/,
+	FLibvlcAudioSetupCb /*Setup*/,
+	FLibvlcAudioCleanupCb /*Cleanup*/);
+
 typedef int32 (*FLibvlcAudioGetTrackProc)(FLibvlcMediaPlayer* /*Player*/);
 typedef int32 (*FLibvlcAudioSetTrackProc)(FLibvlcMediaPlayer* /*Player*/, int32 /*TrackId*/);
 
-// video callbacks
+// video
 typedef void* (*FLibvlcVideoLockCb)(void* /*Opaque*/, void** /*Planes*/);
 typedef void (*FlibvlcVideoUnlockCb)(void* /*Opaque*/, void* /*Picture*/, void* const* /*Planes*/);
 typedef void (*FlibvlcVideoDisplayCb)(void* /*Opaque*/, void* /*Picture*/);
 
-// video
 typedef void (*FLibvlcVideoSetCallbacksProc)(
 	FLibvlcMediaPlayer* /*Player*/,
 	FLibvlcVideoLockCb /*Lock*/,

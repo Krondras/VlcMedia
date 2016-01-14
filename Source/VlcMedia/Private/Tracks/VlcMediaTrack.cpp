@@ -10,7 +10,7 @@
  *****************************************************************************/
 
 FVlcMediaTrack::FVlcMediaTrack(FLibvlcMediaPlayer* InPlayer, uint32 InTrackIndex, FLibvlcTrackDescription* Descr)
-    : LastTime(0.0f)
+    : LastTime(FTimespan::Zero())
 	, Name(ANSI_TO_TCHAR(Descr->Name))
 	, Player(InPlayer)
 	, TrackIndex(InTrackIndex)
@@ -31,6 +31,7 @@ FVlcMediaTrack::FVlcMediaTrack(FLibvlcMediaPlayer* InPlayer, uint32 InTrackIndex
 
 void FVlcMediaTrack::AddSink(const IMediaSinkRef& Sink)
 {
+	FScopeLock Lock(&SinksLock);
 	Sinks.AddUnique(IMediaSinkWeakPtr(Sink));
 }
 
@@ -69,6 +70,7 @@ bool FVlcMediaTrack::IsProtected() const
 
 void FVlcMediaTrack::RemoveSink(const IMediaSinkRef& Sink)
 {
+	FScopeLock Lock(&SinksLock);
 	Sinks.RemoveSingle(IMediaSinkWeakPtr(Sink));
 }
 
@@ -78,13 +80,15 @@ void FVlcMediaTrack::RemoveSink(const IMediaSinkRef& Sink)
 
 void FVlcMediaTrack::ProcessMediaSample(const void* SampleBuffer, uint32 SampleSize, FTimespan SampleDuration)
 {
+	FScopeLock Lock(&SinksLock);
+
 	for (IMediaSinkWeakPtr& SinkPtr : Sinks)
 	{
 		IMediaSinkPtr Sink = SinkPtr.Pin();
 
 		if (Sink.IsValid())
 		{
-			Sink->ProcessMediaSample(SampleBuffer, SampleSize, SampleDuration, FTimespan::FromSeconds(LastTime));
+			Sink->ProcessMediaSample(SampleBuffer, SampleSize, SampleDuration, LastTime);
 		}
 	}
 }

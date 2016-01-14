@@ -13,8 +13,9 @@
 
 
 FVlcMediaPlayer::FVlcMediaPlayer(FLibvlcInstance* InVlcInstance)
-	: CurrentTime(0.0f)
+	: CurrentTime(FTimespan::Zero())
 	, DesiredRate(0.0)
+	, LastPlatformSeconds(0.0)
 	, Player(nullptr)
 	, ShouldLoop(false)
 	, VlcInstance(InVlcInstance)
@@ -41,13 +42,25 @@ FTimespan FVlcMediaPlayer::GetDuration() const
 		return FTimespan::Zero();
 	}
 
-	return FTimespan::FromMilliseconds(FVlc::MediaPlayerGetLength(Player));
+	int64 Length = FVlc::MediaPlayerGetLength(Player);
+
+	if (Length <= 0)
+	{
+		return GetTime();
+	}
+
+	return FTimespan::FromMilliseconds(Length);
 }
 
 
 TRange<float> FVlcMediaPlayer::GetSupportedRates(EMediaPlaybackDirections Direction, bool Unthinned) const
 {
-	return TRange<float>(1.0f);
+	if (Direction == EMediaPlaybackDirections::Reverse)
+	{
+		return TRange<float>(0.0f);
+	}
+
+	return TRange<float>(0.0f, 10.0f);
 }
 
 
@@ -59,7 +72,7 @@ FString FVlcMediaPlayer::GetUrl() const
 
 bool FVlcMediaPlayer::SupportsRate(float Rate, bool Unthinned) const
 {
-	return (Rate == 1.0f);
+	return (Rate >= 0.0f) && (Rate <= 10.f);
 }
 
 
@@ -93,6 +106,7 @@ void FVlcMediaPlayer::Close()
 	// reset fields
 	AudioTracks.Reset();
 	CaptionTracks.Reset();
+	CurrentTime = FTimespan::Zero();
 	VideoTracks.Reset();
 	Tracks.Reset();
 	MediaUrl.Reset();
@@ -134,20 +148,7 @@ float FVlcMediaPlayer::GetRate() const
 
 FTimespan FVlcMediaPlayer::GetTime() const 
 {
-	if (Player == nullptr)
-	{
-		return FTimespan::Zero();
-	}
-
-	return FTimespan::FromSeconds(CurrentTime);
-	/*int64 Time = FMath::Min<int64>(0, FVlc::MediaPlayerGetTime(Player));
-
-	if (Time < 0)
-	{
-		return FTimespan::Zero();
-	}
-
-	return FTimespan::FromMilliseconds(Time);*/
+	return CurrentTime;
 }
 
 
@@ -171,7 +172,14 @@ bool FVlcMediaPlayer::IsPaused() const
 
 bool FVlcMediaPlayer::IsPlaying() const
 {
-	return ((Player != nullptr) && (FVlc::MediaPlayerGetState(Player) == ELibvlcState::Playing));
+	if (Player == nullptr)
+	{
+		return false;
+	}
+
+	ELibvlcState State = FVlc::MediaPlayerGetState(Player);
+
+	return (State == ELibvlcState::Buffering) || (State == ELibvlcState::Playing);
 }
 
 
@@ -184,7 +192,7 @@ bool FVlcMediaPlayer::IsReady() const
 
 	ELibvlcState State = FVlc::MediaPlayerGetState(Player);
 
-	return ((State >= ELibvlcState::Playing) && (State < ELibvlcState::Error));
+	return (State != ELibvlcState::Opening) && (State != ELibvlcState::Buffering) && (State != ELibvlcState::Error);
 }
 
 
@@ -267,7 +275,6 @@ bool FVlcMediaPlayer::Seek(const FTimespan& Time)
 	}
 
 	FVlc::MediaPlayerSetTime(Player, Time.GetTotalMilliseconds());
-	CurrentTime = Time.GetTotalSeconds();
 
 	return true;
 }
@@ -292,19 +299,27 @@ bool FVlcMediaPlayer::SetRate(float Rate)
 		return false;
 	}
 
-	DesiredRate = Rate;
-
 	if (FMath::IsNearlyZero(Rate))
 	{
 		if (IsPlaying())
 		{
+			if (FVlc::MediaPlayerCanPause(Player) == 0)
+			{
+				return false;
+			}
+
 			FVlc::MediaPlayerPause(Player);
 		}
 	}
 	else if (!IsPlaying())
 	{
-		FVlc::MediaPlayerPlay(Player);
+		if (FVlc::MediaPlayerPlay(Player) == -1)
+		{
+			return false;
+		}
 	}
+
+	DesiredRate = Rate;
 
 	return true;
 }
@@ -339,9 +354,8 @@ bool FVlcMediaPlayer::InitializeMediaPlayer(FLibvlcMedia* Media)
 	FVlc::EventAttach(MediaEventManager, ELibvlcEventType::MediaParsedChanged, &FVlcMediaPlayer::HandleEventCallback, this);
 	FVlc::EventAttach(PlayerEventManager, ELibvlcEventType::MediaPlayerEndReached, &FVlcMediaPlayer::HandleEventCallback, this);
 	FVlc::EventAttach(PlayerEventManager, ELibvlcEventType::MediaPlayerPlaying, &FVlcMediaPlayer::HandleEventCallback, this);
+	FVlc::EventAttach(PlayerEventManager, ELibvlcEventType::MediaPlayerPositionChanged, &FVlcMediaPlayer::HandleEventCallback, this);
 
-	//FVlc::MediaParseAsync(Media);
-	FVlc::MediaPlayerPlay(Player);
 	FVlc::MediaRelease(Media);
 
 	MediaEvent.Broadcast(EMediaEvent::MediaOpened);
@@ -448,53 +462,58 @@ void FVlcMediaPlayer::InitializeTracks()
 
 bool FVlcMediaPlayer::HandleTicker(float DeltaTime)
 {
-	if (Tracks.Num() == 0)
+	// process events
+	ELibvlcEventType Event;
+
+	while (Events.Dequeue(Event))
 	{
-		InitializeTracks();
+		switch (Event)
+		{
+		case ELibvlcEventType::MediaParsedChanged:
+			InitializeTracks();
+			break;
+
+		case ELibvlcEventType::MediaPlayerEndReached:
+			MediaEvent.Broadcast(EMediaEvent::PlaybackEndReached);
+
+			// this causes a short delay, but there seems to be no other way.
+			// looping via VLC media list players is also broken. sadness.
+			FVlc::MediaPlayerStop(Player);
+
+			if (ShouldLoop && (DesiredRate != 0.0f))
+			{
+				SetRate(DesiredRate);
+			}
+			break;
+
+		case ELibvlcEventType::MediaPlayerPlaying:
+			LastPlatformSeconds = FPlatformTime::Seconds();
+			break;
+
+		case ELibvlcEventType::MediaPlayerPositionChanged:
+			CurrentTime = FTimespan::FromMilliseconds(FMath::Max<int64>(0, FVlc::MediaPlayerGetTime(Player)));
+			LastPlatformSeconds = FPlatformTime::Seconds();
+			break;
+
+		default:
+			continue;
+		}
 	}
-	else
+
+	if (!IsPlaying())
 	{
-		// process events
-		ELibvlcEventType Event;
+		return true;
+	}
 
-		while (Events.Dequeue(Event))
-		{
-			switch (Event)
-			{
-			case ELibvlcEventType::MediaParsedChanged:
-				//MediaPlayer->InitializeTracks();
-				break;
+	// interpolate time (VLC's timer is low-res)
+	double PlatformSeconds = FPlatformTime::Seconds();
+	CurrentTime += FTimespan::FromSeconds(DesiredRate * (PlatformSeconds - LastPlatformSeconds));
+	LastPlatformSeconds = PlatformSeconds;
 
-			case ELibvlcEventType::MediaPlayerEndReached:
-				FVlc::MediaPlayerStop(Player);
-				CurrentTime = 0.0f;
-
-				if (ShouldLoop && (DesiredRate != 0.0f))
-				{
-					SetRate(DesiredRate);
-				}
-
-				MediaEvent.Broadcast(EMediaEvent::PlaybackEndReached);
-				break;
-
-			case ELibvlcEventType::MediaPlayerPlaying:
-				break;
-
-			default:
-				continue;
-			}
-		}
-
-		// update tracks
-		if (IsPlaying())
-		{
-			CurrentTime += GetRate() * DeltaTime;
-
-			for (TSharedRef<FVlcMediaTrack, ESPMode::ThreadSafe>& Track : Tracks)
-			{
-				Track->SetTime(CurrentTime);
-			}
-		}
+	// update tracks
+	for (TSharedRef<FVlcMediaTrack, ESPMode::ThreadSafe>& Track : Tracks)
+	{
+		Track->SetTime(CurrentTime);
 	}
 
 	return true;

@@ -63,6 +63,7 @@ VLC_DEFINE(MediaPlayerRelease);
 VLC_DEFINE(MediaPlayerRetain);
 VLC_DEFINE(MediaPlayerSetMedia);
 
+VLC_DEFINE(MediaPlayerCanPause);
 VLC_DEFINE(MediaPlayerGetFps);
 VLC_DEFINE(MediaPlayerGetLength);
 VLC_DEFINE(MediaPlayerGetPosition);
@@ -81,6 +82,9 @@ VLC_DEFINE(MediaPlayerSetPause);
 VLC_DEFINE(MediaPlayerStop);
 VLC_DEFINE(MediaPlayerWillPlay);
 
+VLC_DEFINE(AudioSetCallbacks);
+VLC_DEFINE(AudioSetFormat);
+VLC_DEFINE(AudioSetFormatCallbacks);
 VLC_DEFINE(AudioGetTrack);
 VLC_DEFINE(AudioSetTrack);
 
@@ -178,6 +182,7 @@ bool FVlc::Initialize()
 	VLC_IMPORT(libvlc_media_player_retain, MediaPlayerRetain);
 	VLC_IMPORT(libvlc_media_player_set_media, MediaPlayerSetMedia);
 
+	VLC_IMPORT(libvlc_media_player_can_pause, MediaPlayerCanPause);
 	VLC_IMPORT(libvlc_media_player_get_fps, MediaPlayerGetFps);
 	VLC_IMPORT(libvlc_media_player_get_length, MediaPlayerGetLength);
 	VLC_IMPORT(libvlc_media_player_get_position, MediaPlayerGetPosition);
@@ -196,6 +201,9 @@ bool FVlc::Initialize()
 	VLC_IMPORT(libvlc_media_player_stop, MediaPlayerStop);
 	VLC_IMPORT(libvlc_media_player_will_play, MediaPlayerWillPlay);
 
+	VLC_IMPORT(libvlc_audio_set_callbacks, AudioSetCallbacks);
+	VLC_IMPORT(libvlc_audio_set_format, AudioSetFormat);
+	VLC_IMPORT(libvlc_audio_set_format_callbacks, AudioSetFormatCallbacks);
 	VLC_IMPORT(libvlc_audio_get_track, AudioGetTrack);
 	VLC_IMPORT(libvlc_audio_set_track, AudioSetTrack);
 

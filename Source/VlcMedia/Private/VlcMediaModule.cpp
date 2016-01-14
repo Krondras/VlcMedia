@@ -73,16 +73,15 @@ public:
 		const ANSICHAR* Args[] =
 		{
 			TCHAR_TO_ANSI(*(FString(TEXT("--plugin-path=")) + FVlc::GetPluginDir())),
-			//"--dummy-quiet",
+			"--aout", "dummy",
 			"--intf", "dummy",
-			"--no-audio",
 			"--no-disable-screensaver",
+//			"--no-osd",
 			"--no-snapshot-preview",
 			"--no-stats",
 			"--no-video-title-show",
 			"--no-xlib",
-			//"--no-inhibit",
-			//"--quiet",
+//			"--text-renderer", "dummy",
 			"--vout", "dummy",
 		};
 
@@ -216,9 +215,9 @@ public:
 	{
 		const FString Extension = FPaths::GetExtension(Url);
 
-		if (!Extension.IsEmpty())
+		if (!Extension.IsEmpty() && SupportedFileTypes.Contains(Extension))
 		{
-			return SupportedFileTypes.Contains(Extension);
+			return true;
 		}
 
 		for (const FString& Scheme : SupportedUriSchemes)
