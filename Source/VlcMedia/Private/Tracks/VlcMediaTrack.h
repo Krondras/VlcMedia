@@ -2,8 +2,12 @@
 
 #pragma once
 
+#include "IMediaStream.h"
 
+
+struct FLibvlcMediaPlayer;
 class FVlcMediaPlayer;
+class IMediaSink;
 
 
 /**
@@ -18,9 +22,9 @@ public:
 	 * Creates and initializes a new instance.
 	 *
 	 * @param InPlayer The media player that owns this track.
-	 * @param InTrackIndex The index number of this track.
+	 * @param Descr The track description.
 	 */
-    FVlcMediaTrack(FLibvlcMediaPlayer* InPlayer, uint32 InTrackIndex, FLibvlcTrackDescription* Descr);
+    FVlcMediaTrack(FLibvlcMediaPlayer* InPlayer, FLibvlcTrackDescription* Descr);
 
 public:
 
@@ -33,13 +37,13 @@ public:
 
 	// IMediaStream interface
 
-    virtual void AddSink(const IMediaSinkRef& Sink) override;
+    virtual void AddSink(const TSharedRef<IMediaSink, ESPMode::ThreadSafe>& Sink) override;
     virtual FText GetDisplayName() const override;
     virtual FString GetLanguage() const override;
     virtual FString GetName() const override;
-    virtual bool IsMutuallyExclusive(const IMediaStreamRef& Other) const override;
+    virtual bool IsMutuallyExclusive(const TSharedRef<IMediaStream, ESPMode::ThreadSafe>& Other) const override;
     virtual bool IsProtected() const override;
-    virtual void RemoveSink(const IMediaSinkRef& Sink) override;
+    virtual void RemoveSink(const TSharedRef<IMediaSink, ESPMode::ThreadSafe>& Sink) override;
 
 protected:
 	
@@ -77,11 +81,8 @@ private:
 	FLibvlcMediaPlayer* Player;
 
 	/** The collection of registered media sinks. */
-    TArray<IMediaSinkWeakPtr> Sinks;
+    TArray<TWeakPtr<IMediaSink, ESPMode::ThreadSafe>> Sinks;
 
 	/** Critical section for synchronizing access to sinks. */
 	FCriticalSection SinksLock;
-
-	/** The track's index number. */
-    uint32 TrackIndex;
 };

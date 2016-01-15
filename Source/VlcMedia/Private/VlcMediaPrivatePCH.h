@@ -11,10 +11,6 @@
 #include "IMediaInfo.h"
 #include "IMediaPlayer.h"
 #include "IMediaSink.h"
-#include "IMediaStream.h"
-#include "IMediaAudioTrack.h"
-#include "IMediaCaptionTrack.h"
-#include "IMediaVideoTrack.h"
 
 
 /* Private macros
@@ -30,6 +26,7 @@ DECLARE_LOG_CATEGORY_EXTERN(LogVlcMedia, Log, All);
 #include "VlcMediaTrack.h"
 #include "VlcMediaAudioTrack.h"
 #include "VlcMediaCaptionTrack.h"
+#include "VlcMediaSource.h"
 #include "VlcMediaVideoTrack.h"
 #include "VlcMediaPlayer.h"
 #include "VlcMediaSettings.h"

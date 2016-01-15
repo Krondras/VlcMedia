@@ -2,6 +2,15 @@
 
 #pragma once
 
+#include "IMediaVideoTrack.h"
+#include "VlcMediaTrack.h"
+
+
+struct FLibvlcMediaPlayer;
+struct FLibvlcTrackDescription;
+class FRHITexture;
+class IMediaStream;
+
 
 class FVlcMediaVideoTrack
 	: public FVlcMediaTrack
@@ -13,10 +22,9 @@ public:
 	 * Creates and initializes a new instance.
 	 *
 	 * @param InPlayer The VLC media player instance that owns this track.
-	 * @param InTrackIndex The index number of this track.
 	 * @param Descr The track description.
 	 */
-	FVlcMediaVideoTrack(FLibvlcMediaPlayer* InPlayer, uint32 InTrackIndex, FLibvlcTrackDescription* Descr);
+	FVlcMediaVideoTrack(FLibvlcMediaPlayer* InPlayer, FLibvlcTrackDescription* Descr);
 
 	/** Virtual destructor. */
 	virtual ~FVlcMediaVideoTrack();
@@ -31,8 +39,8 @@ public:
 	virtual IMediaStream& GetStream() override;
 
 #if WITH_ENGINE
-	virtual void BindTexture(class FRHITexture* Texture) override;
-	virtual void UnbindTexture(class FRHITexture* Texture) override;
+	virtual void BindTexture(FRHITexture* Texture) override;
+	virtual void UnbindTexture(FRHITexture* Texture) override;
 #endif
 
 public:
@@ -45,14 +53,20 @@ public:
 
 private:
 
-	/** Handles the buffer lock callback from VLC. */
-	static void* HandleVideoLock(void* Opaque, void** Planes);
-
-	/** Handles the buffer unlock callback from VLC. */
-	static void HandleVideoUnlock(void* Opaque, void* Picture, void* const* Planes);
+	/** Handles cleanup callback from VLC. */
+	static void HandleVideoCleanup(void* Opaque);
 
 	/** Handles the display callback from VLC. */
 	static void HandleVideoDisplay(void* Opaque, void* Picture);
+
+	/** Handles the buffer lock callback from VLC. */
+	static void* HandleVideoLock(void* Opaque, void** Planes);
+
+	/** Handles video setup callbacks from VLC. */
+	static uint32 HandleVideoSetup(void** Opaque, ANSICHAR* Chroma, uint32* Width, uint32* Height, uint32* Pitches, uint32* Lines);
+
+	/** Handles the buffer unlock callback from VLC. */
+	static void HandleVideoUnlock(void* Opaque, void* Picture, void* const* Planes);
 
 private:
 
